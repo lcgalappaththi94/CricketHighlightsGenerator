@@ -6,7 +6,7 @@ import cv2
 import pytesseract
 from imageai.Detection.Custom import CustomObjectDetection
 
-from src.main.demo_video_writer import write_demo_video
+from src.main.demo_video_writer import init_demo_video_writer, write_to_demo_video, release_demo_video_writer
 from src.main.optical_flow import calculate_optical_flow
 from src.main.scene_detect import detect_camera_scenes_of_video
 from src.main.utils import get_crop_image, generate_unique_id, create_folder_structure, convert_str_time_code_to_seconds, get_image_on_image
@@ -269,13 +269,15 @@ def process_video(video_path, start_position=None, end_position=None):
     previous_gray_frame = None
     previous_points = None
 
-    demo_frame_list = []
-
     # create unique id for the session
     unique_id_for_this_session = generate_unique_id()
 
     # create folder structure
     create_folder_structure(global_configs['OUTPUT_FOLDER_PATH'], unique_id_for_this_session)
+
+    if global_configs['WRITE_DEMO_VIDEO']:
+        demo_video_file_path = '{}/{}/demo/{}_demo_video.mp4'.format(global_configs['OUTPUT_FOLDER_PATH'], unique_id_for_this_session, video_file_name)
+        init_demo_video_writer(frame_w, frame_h, int(video_fps * 2 / 3), demo_video_file_path)
 
     video_reader.set(cv2.CAP_PROP_POS_FRAMES, start_frame_number)  # set next frame number to read
 
@@ -380,17 +382,16 @@ def process_video(video_path, start_position=None, end_position=None):
                 cv2.imshow("Frame", frame)
 
                 if global_configs['WRITE_DEMO_VIDEO']:
-                    demo_frame_list.append(frame)
+                    write_to_demo_video(frame)
 
             except Exception as err:
                 print(err)
 
+    if global_configs['WRITE_DEMO_VIDEO']:
+        release_demo_video_writer()
+
     video_reader.release()
     cv2.destroyAllWindows()
-
-    if global_configs['WRITE_DEMO_VIDEO']:
-        demo_video_file_path = '{}/{}/demo/{}_demo_video.mp4'.format(global_configs['OUTPUT_FOLDER_PATH'], unique_id_for_this_session, video_file_name)
-        write_demo_video(demo_frame_list, frame_w, frame_h, int(video_fps * 2 / 3), demo_video_file_path)
 
     print('camera scene types', camera_scene_types)
     print('highlight triggered positions', highlight_triggered_positions)

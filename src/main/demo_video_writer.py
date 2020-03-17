@@ -1,21 +1,28 @@
 import cv2
 import numpy as np
 
+demo_video_writer = None
 
-def write_demo_video(frame_list, frame_w, frame_h, fps, demo_video_file_path):
+
+def init_demo_video_writer(frame_w, frame_h, fps, demo_video_file_path):
+    global demo_video_writer
     four_cc = cv2.VideoWriter_fourcc(*'mp4v')
-    video_writer = cv2.VideoWriter(demo_video_file_path, four_cc, fps, (frame_w, frame_h))
+    demo_video_writer = cv2.VideoWriter(demo_video_file_path, four_cc, fps, (frame_w, frame_h))
     original_video_file_name = (demo_video_file_path.split('/')[-1]).replace('_demo_video', '')
 
     # write initial video frames
-    get_initial_frames_for_summary_video(frame_w, frame_h, video_writer, "This is the demo video\ncreated for\nvideo file: {}".format(
-        original_video_file_name))
+    get_initial_frames_for_summary_video(frame_w, frame_h, demo_video_writer,
+                                         "This is the demo video\ncreated for\nvideo file: {}".format(original_video_file_name))
 
-    # write frames to video
-    for frame in frame_list:
-        video_writer.write(np.uint8(frame))
 
-    video_writer.release()
+def write_to_demo_video(frame):
+    demo_video_writer.write(np.uint8(frame))
+
+
+def release_demo_video_writer():
+    global demo_video_writer
+    demo_video_writer.release()
+    demo_video_writer = None
 
 
 def get_initial_frames_for_summary_video(width, height, video_writer, description):
