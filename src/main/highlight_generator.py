@@ -447,7 +447,7 @@ def find_best_starting_ending_points(scene_type, position, fps):
             diff = position - frame
             if frame < position and diff > fps * 3:
                 starting_point = frame
-            elif ending_point is None:
+            elif starting_point is not None and ending_point is None:
                 ending_point = frame
             else:
                 break
