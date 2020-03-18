@@ -6,19 +6,19 @@ from scenedetect.stats_manager import StatsManager
 from scenedetect.video_manager import VideoManager
 
 
-def detect_camera_scenes_of_video(video_file, start, end, framerate):
+def detect_camera_scenes_of_video(video_file, start_frame_number, end_frame_number, framerate):
     scenes_start_frames_list = []
 
     video_manager = VideoManager([video_file], framerate=framerate)
     stats_manager = StatsManager()
     scene_manager = SceneManager(stats_manager)
     # Add ContentDetector algorithm (constructor takes detector options like threshold).
-    scene_manager.add_detector(ContentDetector(threshold=20))
-    base_time_code = video_manager.get_base_timecode()
+    scene_manager.add_detector(ContentDetector(threshold=15))
+    base_time_code = video_manager.get_base_timecode()  # 00:00:00.000
 
     try:
-        start_time = base_time_code + start
-        end_time = base_time_code + end
+        start_time = base_time_code + start_frame_number
+        end_time = base_time_code + end_frame_number
         print('start time: {}'.format(start_time), 'end time: {}'.format(end_time))
         # Set video_manager duration to read frames
         video_manager.set_duration(start_time=start_time, end_time=end_time)
@@ -37,7 +37,7 @@ def detect_camera_scenes_of_video(video_file, start, end, framerate):
         # Like FrameTimecodes, each scene in the scene_list can be sorted if the
         # list of scenes becomes unsorted.
 
-        for i, scene in enumerate(scene_list):
+        for scene in scene_list:
             scenes_start_frames_list.append(scene[0].get_frames())
 
     finally:

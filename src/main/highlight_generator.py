@@ -9,7 +9,7 @@ from imageai.Detection.Custom import CustomObjectDetection
 from src.main.demo_video_writer import init_demo_video_writer, write_to_demo_video, release_demo_video_writer
 from src.main.optical_flow import calculate_optical_flow
 from src.main.scene_detect import detect_camera_scenes_of_video
-from src.main.utils import get_crop_image, generate_unique_id, create_folder_structure, convert_str_time_code_to_seconds, get_image_on_image
+from src.main.utils import get_crop_image, generate_unique_id, create_folder_structure, convert_str_time_code_to_seconds, get_image_on_image, remove_black_bars
 from src.main.video_utils import split_video_by_config, get_frame_rate, merge_all_clips
 
 global_configs = None
@@ -42,36 +42,27 @@ def aws_rekognition_get_text_detections(frame):
         return []
 
 
-def recognize_text(img, method):
-    print('Recognize text {}'.format(method))
+def recognize_text(cropped_roi, method):
+    print('Recognize text by {}'.format(method))
     if method == 'aws':
         detected_text = []
-        for text in aws_rekognition_get_text_detections(img):
+        for text in aws_rekognition_get_text_detections(cropped_roi):
             if text['Type'] == 'LINE':
                 detected_text.append(text['DetectedText'])
 
         return ' | '.join(detected_text)
     else:
-        return pytesseract.image_to_string(img)
-
-
-def remove_black_bars(frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
-    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnt = contours[0]
-    x, y, w, h = cv2.boundingRect(cnt)
-    return get_crop_image(frame, x, y, x + w, y + h)
+        return pytesseract.image_to_string(cropped_roi)
 
 
 def check_for_scoreboard_by_regex(text):
     if global_configs['SCOREBOARD_FORMAT'] == 'SF':
-        return re.search(global_configs['SCORE_BOARD_REGEX'], text)
+        return re.search(global_configs['SCORE_BOARD_REGEX_SF'], text)
     else:
-        return re.search(global_configs['SCORE_BOARD_REGEX_UNCOMMON'], text)
+        return re.search(global_configs['SCORE_BOARD_REGEX_WF'], text)
 
 
-def get_roi_cropped(frame, frame_h, frame_w):
+def get_roi_cropped(frame, frame_w, frame_h):
     roi_location = global_configs['ROI_LOCATION']
     if roi_location == 'bottom':
         distance = int(frame_h * global_configs['ROI_FRACTION'])
@@ -82,15 +73,17 @@ def get_roi_cropped(frame, frame_h, frame_w):
     elif roi_location == 'right':
         distance = int(frame_w * global_configs['ROI_FRACTION'])
         cropped_roi = get_crop_image(frame, frame_w - distance, 0, frame_w, frame_h)
-    else:
+    elif roi_location == 'left':
         distance = int(frame_w * global_configs['ROI_FRACTION'])
         cropped_roi = get_crop_image(frame, 0, 0, distance, frame_h)
+    else:
+        cropped_roi = frame
 
     return cropped_roi
 
 
 def find_scoreboard_location(frame, frame_h, frame_w):
-    cropped_roi = get_roi_cropped(frame, frame_h, frame_w)
+    cropped_roi = get_roi_cropped(frame, frame_w, frame_h)
     aws_result = aws_rekognition_get_text_detections(cropped_roi)
 
     roi_height, roi_width, channels = cropped_roi.shape
@@ -109,38 +102,38 @@ def find_scoreboard_location(frame, frame_h, frame_w):
     return None, None
 
 
-def try_to_recognize_text(scoreboard):
-    text_found = recognize_text(scoreboard, 'pytessaract')
+def try_to_recognize_text(cropped_scoreboard):
+    text_found = recognize_text(cropped_scoreboard, 'pytessaract')
     if text_found is not None and len(text_found) > 0 and check_for_scoreboard_by_regex(text_found):
         return text_found
     else:
-        text_found = recognize_text(scoreboard, 'aws')
+        text_found = recognize_text(cropped_scoreboard, 'aws')
         if text_found is not None and len(text_found) > 0 and check_for_scoreboard_by_regex(text_found):
             return text_found
         else:
             return None
 
 
-def crop_and_recognize_text_at_location(roi_lower_quarter, location):
+def crop_and_recognize_text_at_location(cropped_roi, location):
     tolerance = 12
     tlx = location[0] - tolerance
     tly = location[1] - tolerance
     brx = location[0] + location[2] + tolerance
     bry = location[1] + location[3] + tolerance
 
-    scoreboard_crop = get_crop_image(roi_lower_quarter.copy(), tlx, tly, brx, bry)
+    scoreboard_crop = get_crop_image(cropped_roi.copy(), tlx, tly, brx, bry)
     scoreboard_crop = cv2.bilateralFilter(scoreboard_crop, 9, 80, 80)
 
     text_found = try_to_recognize_text(scoreboard_crop)
     if text_found:
-        cv2.rectangle(roi_lower_quarter, (tlx, tly), (brx, bry), (0, 0, 255), 2)
+        cv2.rectangle(cropped_roi, (tlx, tly), (brx, bry), (0, 0, 255), 2)
     return text_found
 
 
 def read_scoreboard(frame, frame_h, frame_w, scoreboard_locations, previous_scoreboard_location):
-    cropped_roi = get_roi_cropped(frame, frame_h, frame_w)
+    cropped_roi = get_roi_cropped(frame, frame_w, frame_h)
 
-    if previous_scoreboard_location:
+    if previous_scoreboard_location is not None:
         text_found = crop_and_recognize_text_at_location(cropped_roi, previous_scoreboard_location)
         if text_found:
             return get_scoreboard_object_from_scoreboard_text(text_found), previous_scoreboard_location
@@ -204,7 +197,7 @@ def get_text_from_diff_object(diff_object):
         return None
 
 
-def is_scene_start_frame(frame):
+def is_cricket_scene_start_frame_by_model(frame):
     _, detections = image_ai_detector.detectObjectsFromImage(input_type="array", input_image=frame, output_type="array")
     no_of_detections = len(detections)
     if no_of_detections > 0:
@@ -219,8 +212,8 @@ def is_scene_start_frame(frame):
         return False
 
 
-def get_end_frame_of_the_scene(current_frame_number, scenes_list):
-    index = scenes_list.index(current_frame_number)
+def get_end_frame_of_the_scene(scene_start_frame_number, scenes_list):
+    index = scenes_list.index(scene_start_frame_number)
     return scenes_list[index + 1] - 1
 
 
@@ -288,6 +281,7 @@ def process_video(video_path, start_position=None, end_position=None):
             try:
                 frame_info.append('Session Id: {}'.format(unique_id_for_this_session))
                 frame_info.append('Frame Number: {}'.format(i))
+
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q"):
                     break
@@ -301,12 +295,12 @@ def process_video(video_path, start_position=None, end_position=None):
                     # check type of frames
                     if i < check_frame_type_until:
                         if check_frame_type_until - i > int(video_fps * 0.75):
-                            frame_decision = is_scene_start_frame(frame)
-                            frame_info.append('Scene start[Model]: {}'.format('YES' if frame_decision else 'NO'))
+                            frame_decision = is_cricket_scene_start_frame_by_model(frame)
+                            frame_info.append('Scene start [Model]: {}'.format('YES' if frame_decision else 'NO'))
                         else:
                             previous_gray_frame, previous_points, frame_decision, frame = calculate_optical_flow(previous_gray_frame, frame, frame_w, frame_h,
                                                                                                                  previous_points)
-                            frame_info.append('Scene start[Optical]: {}'.format('YES' if frame_decision else 'NO'))
+                            frame_info.append('Scene start [Optical]: {}'.format('YES' if frame_decision else 'NO'))
                         camera_scene_start_frames_decisions.append(frame_decision)
 
                     elif i == check_frame_type_until:
@@ -326,7 +320,7 @@ def process_video(video_path, start_position=None, end_position=None):
                     current_camera_scene_end_frame_number = get_end_frame_of_the_scene(i, camera_scenes_list)
                     current_camera_scene_started_frame = cv2.resize(frame.copy(), (int(frame_w * 0.2), int(frame_h * 0.2)), interpolation=cv2.INTER_AREA)
 
-                    camera_scene_length = current_camera_scene_end_frame_number - current_camera_scene_started_frame_number
+                    camera_scene_length = current_camera_scene_end_frame_number - current_camera_scene_started_frame_number - 1
                     check_frame_type_until = i + (camera_scene_length if video_fps > camera_scene_length else video_fps)
 
                     print('New camera scene started at {}'.format(i), current_camera_scene_end_frame_number, check_frame_type_until)
@@ -350,21 +344,21 @@ def process_video(video_path, start_position=None, end_position=None):
                     diff_object = get_scoreboard_diff(scoreboard_data_object)
                     frame_by_frame_diff[i] = diff_object
 
-                    diff_text = get_text_from_diff_object(diff_object)
                     frame_info.append('Detected scoreboard: {}'.format('{}-{}'.format(scoreboard_data_object['score'], scoreboard_data_object['wickets'])))
+                    diff_text = get_text_from_diff_object(diff_object)
 
-                    if diff_text is not None:
+                    if diff_text is not None:  # if there is a highlight event
                         previous_diff_text = {
                             'text': diff_text,
                             'clear': int(i + video_fps)
                         }
-                        frame_info.append('Highlight event: {}'.format('{}'.format(previous_diff_text['text'])))
+                        frame_info.append('Highlight event: {}'.format(previous_diff_text['text']))
                         frame_info.append('Disappear after: {} frame(s)'.format(previous_diff_text['clear'] - i))
 
                         highlight_triggered_positions.append(i)
 
-                    elif previous_diff_text and previous_diff_text['clear'] >= i:
-                        frame_info.append('Highlight event: {}'.format('{}'.format(previous_diff_text['text'])))
+                    elif previous_diff_text is not None and previous_diff_text['clear'] >= i:
+                        frame_info.append('Highlight event: {}'.format(previous_diff_text['text']))
                         frame_info.append('Disappear after: {} frame(s)'.format(previous_diff_text['clear'] - i))
                     else:
                         frame_info.append('Highlight event: {}'.format('No'))
@@ -427,12 +421,12 @@ def show_info_in_frame(frame, frame_h, frame_w, info):
 def split_video_into_highlight_scenes(video_path, scene_type, highlight_triggered_positions, fps, output_file_path_prefix):
     config_list = []
     for position in highlight_triggered_positions:
-        start, end = find_best_starting_ending_points(scene_type, position, fps)
+        start_frame, end_frame = find_best_starting_ending_points(scene_type, position, fps)
 
         config_list.append({
-            "start_time": round(start / fps),
-            "length": round((end - start) / fps),
-            "rename_to": "{}_cut_{}_{}.mp4".format(output_file_path_prefix, start, end)
+            "start_time": round(start_frame / fps, 2),
+            "length": round((end_frame - start_frame) / fps, 2),
+            "rename_to": "{}_cut_{}_{}.mp4".format(output_file_path_prefix, start_frame, end_frame)
         })
 
     split_video_by_config(video_path, config_list)
@@ -447,7 +441,7 @@ def find_best_starting_ending_points(scene_type, position, fps):
             diff = position - frame
             if frame < position and diff > fps * 3:
                 starting_point = frame
-            elif starting_point is not None and ending_point is None:
+            elif ending_point is None:
                 ending_point = frame
             else:
                 break

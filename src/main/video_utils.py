@@ -46,8 +46,7 @@ def get_frame_rate(filename):
         sys.stderr.write("ERROR: filename %r was not found!" % (filename,))
         return -1
     out = subprocess.check_output(
-        ["ffprobe", filename, "-v", "0", "-select_streams", "v", "-print_format", "flat", "-show_entries",
-         "stream=r_frame_rate"])
+        ["ffprobe", filename, "-v", "0", "-select_streams", "v", "-print_format", "flat", "-show_entries", "stream=r_frame_rate"])
     rate = str(out).split('"')[1].strip().split('/')
     if len(rate) == 1:
         return float(rate[0])

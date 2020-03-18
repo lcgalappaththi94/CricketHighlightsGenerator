@@ -1,5 +1,6 @@
 import cv2
 
+tracker = None
 CORRELATION_TRACKER = 'csrt'  # OPENCV_OBJECT_TRACKERS or dlib
 OPENCV_OBJECT_TRACKERS = {
     "csrt": cv2.TrackerCSRT_create(),

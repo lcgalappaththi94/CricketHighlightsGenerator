@@ -11,8 +11,7 @@ def init_demo_video_writer(frame_w, frame_h, fps, demo_video_file_path):
     original_video_file_name = (demo_video_file_path.split('/')[-1]).replace('_demo_video', '')
 
     # write initial video frames
-    get_initial_frames_for_summary_video(frame_w, frame_h, demo_video_writer,
-                                         "This is the demo video\ncreated for\nvideo file: {}".format(original_video_file_name))
+    get_initial_frames_for_demo_video(frame_w, frame_h, fps, "This is the demo video\ncreated for\nvideo file: {}".format(original_video_file_name))
 
 
 def write_to_demo_video(frame):
@@ -25,7 +24,7 @@ def release_demo_video_writer():
     demo_video_writer = None
 
 
-def get_initial_frames_for_summary_video(width, height, video_writer, description):
+def get_initial_frames_for_demo_video(width, height, fps, description):
     blank_image = np.zeros((height, width, 3), np.uint8)
 
     description_box_tl = (int(width * 0.1), int(height * 0.1))
@@ -41,11 +40,11 @@ def get_initial_frames_for_summary_video(width, height, video_writer, descriptio
         for char in line:
             accumulated_string = accumulated_string + char
             cv2.putText(temp_black, accumulated_string, (x0, y), cv2.FONT_HERSHEY_DUPLEX, font_size, (0, 0, 255), 2)
-            video_writer.write(np.uint8(temp_black))
+            demo_video_writer.write(np.uint8(temp_black))
         temp_black_prev = temp_black
 
-    for _ in range(0, 22):
-        video_writer.write(np.uint8(temp_black_prev))
+    for _ in range(0, fps):
+        demo_video_writer.write(np.uint8(temp_black_prev))
 
 
 def get_font_size(violation_info, description_box_tl, description_box_br):

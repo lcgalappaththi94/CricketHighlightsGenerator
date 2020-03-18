@@ -4,6 +4,15 @@ import uuid
 import cv2
 
 
+def remove_black_bars(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    x, y, w, h = cv2.boundingRect(cnt)
+    return get_crop_image(frame, x, y, x + w, y + h)
+
+
 def get_crop_image(original, tlx, tly, brx, bry):
     return original[tly:bry, tlx:brx]
 

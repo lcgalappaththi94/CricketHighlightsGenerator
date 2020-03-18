@@ -52,9 +52,9 @@ def calculate_optical_flow(previous_frame_gray, current_frame, frame_w, frame_h,
 
             # draw the tracks
             up_movement_count = 0
-            for i, (new, old) in enumerate(zip(good_new, good_old)):
-                a, b = new.ravel()
-                c, d = old.ravel()
+            for (new, old) in zip(good_new, good_old):
+                a, b = new.ravel()  # [a,b]
+                c, d = old.ravel()  # [c,d]
 
                 cv2.arrowedLine(current_frame, (a, b), (c, d), (0, 0, 255), 2)
                 if is_movement_up(c, d, a, b):
