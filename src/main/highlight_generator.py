@@ -294,7 +294,7 @@ def process_video(video_path, start_position=None, end_position=None):
 
                     # check type of frames
                     if i < check_frame_type_until:
-                        if check_frame_type_until - i > int(video_fps * 0.75):
+                        if check_frame_type_until - i > int((check_frame_type_until - current_camera_scene_started_frame_number) * 0.75):
                             frame_decision = is_cricket_scene_start_frame_by_model(frame)
                             frame_info.append('Scene start [Model]: {}'.format('YES' if frame_decision else 'NO'))
                         else:
@@ -421,12 +421,12 @@ def show_info_in_frame(frame, frame_h, frame_w, info):
 def split_video_into_highlight_scenes(video_path, scene_type, highlight_triggered_positions, fps, output_file_path_prefix):
     config_list = []
     for position in highlight_triggered_positions:
-        start_frame, end_frame = find_best_starting_ending_points(scene_type, position, fps)
+        start_frame_number, end_frame_number = find_best_starting_ending_points(scene_type, position, fps)
 
         config_list.append({
-            "start_time": round(start_frame / fps, 2),
-            "length": round((end_frame - start_frame) / fps, 2),
-            "rename_to": "{}_cut_{}_{}.mp4".format(output_file_path_prefix, start_frame, end_frame)
+            "start_time": round(start_frame_number / fps, 2),
+            "length": round((end_frame_number - start_frame_number) / fps, 2),
+            "rename_to": "{}_cut_{}_{}.mp4".format(output_file_path_prefix, start_frame_number, end_frame_number)
         })
 
     split_video_by_config(video_path, config_list)
@@ -436,13 +436,13 @@ def split_video_into_highlight_scenes(video_path, scene_type, highlight_triggere
 def find_best_starting_ending_points(scene_type, position, fps):
     starting_point = None
     ending_point = None
-    for frame, is_start_type in scene_type.items():
+    for scene_start_frame_number, is_start_type in scene_type.items():
         if is_start_type:
-            diff = position - frame
-            if frame < position and diff > fps * 3:
-                starting_point = frame
+            diff = position - scene_start_frame_number
+            if scene_start_frame_number < position and diff > fps * 3:
+                starting_point = scene_start_frame_number
             elif ending_point is None:
-                ending_point = frame
+                ending_point = scene_start_frame_number
             else:
                 break
 

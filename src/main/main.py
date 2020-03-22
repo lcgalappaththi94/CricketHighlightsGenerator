@@ -9,7 +9,7 @@ configs = {
     'DEMO_FULL_SCREEN': True,
     'OUTPUT_FOLDER_PATH': '../../output',
     'ROI_FRACTION': 0.25,
-    'ROI_LOCATION': 'bottom',  # (top,bottom,lef,right)
+    'ROI_LOCATION': 'bottom',  # (top, bottom, left, right)
     'SEPARATOR': SEPARATOR,
     'SCORE_BOARD_REGEX_SF': '^[0-9]{1,3}' + SEPARATOR + '[0-9]$',  # (SF) scoreboard first
     'SCORE_BOARD_REGEX_WF': '^[0-9]' + SEPARATOR + '[0-9]{1,3}$',  # (WF) wickets first
