@@ -50,7 +50,7 @@ pandas==1.0.0
 pascal-voc-writer==0.1.4
 Pillow==6.2.0
 proglog==0.1.9
-protobuf==3.8.0
+protobuf==3.15.0
 pycparser==2.19
 pyOpenSSL==19.0.0
 pyparsing==2.4.2
