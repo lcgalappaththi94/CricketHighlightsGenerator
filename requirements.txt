@@ -45,7 +45,7 @@ mkl-service==2.3.0
 moviepy==1.0.1
 namegenerator==1.0.6
 numba==0.48.0
-numpy==1.16.5
+numpy==1.22.0
 pandas==1.0.0
 pascal-voc-writer==0.1.4
 Pillow==6.2.0
